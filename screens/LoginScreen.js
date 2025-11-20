@@ -9,16 +9,19 @@ import {
   Platform,
   ScrollView,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { authAPI } from '../services/api';
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!email || !password) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
@@ -30,8 +33,20 @@ export default function LoginScreen({ navigation }) {
       return;
     }
 
-    // TODO: Replace this with backend authentication
-    navigation.replace('Home');
+    setIsLoading(true);
+
+    try {
+      const response = await authAPI.login(email, password);
+
+      if (response.success) {
+        Alert.alert('Success', 'Login successful!');
+        navigation.replace('Home');
+      }
+    } catch (error) {
+      Alert.alert('Login Failed', error.message || 'Invalid email or password');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -106,11 +121,16 @@ export default function LoginScreen({ navigation }) {
 
           {/* Login Button */}
           <TouchableOpacity
-            style={styles.loginButton}
+            style={[styles.loginButton, isLoading && styles.loginButtonDisabled]}
             onPress={handleLogin}
             activeOpacity={0.8}
+            disabled={isLoading}
           >
-            <Text style={styles.loginButtonText}>Log In</Text>
+            {isLoading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.loginButtonText}>Log In</Text>
+            )}
           </TouchableOpacity>
 
           
@@ -227,6 +247,9 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  loginButtonDisabled: {
+    opacity: 0.6,
   },
   divider: {
     flexDirection: 'row',

@@ -9,9 +9,11 @@ import {
   Platform,
   ScrollView,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { authAPI } from '../services/api';
 
 export default function SignupScreen({ navigation }) {
   const [name, setName] = useState('');
@@ -20,8 +22,9 @@ export default function SignupScreen({ navigation }) {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (!name || !email || !password || !confirmPassword) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
@@ -43,8 +46,24 @@ export default function SignupScreen({ navigation }) {
       return;
     }
 
-    // TODO: Connect this to your backend for verification
-    navigation.navigate('Verification', { email });
+    setIsLoading(true);
+
+    try {
+      const response = await authAPI.register(name, email, password);
+
+      if (response.success) {
+        Alert.alert('Success', 'Account created successfully!', [
+          {
+            text: 'Continue',
+            onPress: () => navigation.navigate('AdditionalInfo')
+          }
+        ]);
+      }
+    } catch (error) {
+      Alert.alert('Registration Failed', error.message || 'Unable to create account. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -146,11 +165,16 @@ export default function SignupScreen({ navigation }) {
 
           {/* Create Account Button */}
           <TouchableOpacity
-            style={styles.createButton}
+            style={[styles.createButton, isLoading && styles.createButtonDisabled]}
             onPress={handleNext}
             activeOpacity={0.8}
+            disabled={isLoading}
           >
-            <Text style={styles.createButtonText}>Create Account</Text>
+            {isLoading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.createButtonText}>Create Account</Text>
+            )}
           </TouchableOpacity>
 
          
@@ -244,6 +268,9 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  createButtonDisabled: {
+    opacity: 0.6,
   },
   loginContainer: {
     flexDirection: 'row',

@@ -1,22 +1,81 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  TouchableOpacity, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
   ScrollView,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { vitalsAPI, childrenAPI, alertsAPI } from '../services/api';
 
 export default function HomeScreen({ navigation }) {
-  const [heartRate, setHeartRate] = useState(120);
-  const [temperature, setTemperature] = useState(36.8);
-  const [oxygenSaturation, setOxygenSaturation] = useState(98);
-  const [movement, setMovement] = useState('Normal ');
-  const [batteryLevel, setBatteryLevel] = useState(85);
-  const [deviceConnected, setDeviceConnected] = useState(true);
-  const [hasAlerts, setHasAlerts] = useState(true);
+  const [heartRate, setHeartRate] = useState(0);
+  const [temperature, setTemperature] = useState(0);
+  const [oxygenSaturation, setOxygenSaturation] = useState(0);
+  const [movement, setMovement] = useState('normal');
+  const [batteryLevel, setBatteryLevel] = useState(0);
+  const [deviceConnected, setDeviceConnected] = useState(false);
+  const [hasAlerts, setHasAlerts] = useState(false);
+  const [childId, setChildId] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  useEffect(() => {
+    loadData();
+    // Refresh data every 10 seconds
+    const interval = setInterval(loadData, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const loadData = async () => {
+    try {
+      // Get children
+      const childrenResponse = await childrenAPI.getChildren();
+
+      if (childrenResponse.children && childrenResponse.children.length > 0) {
+        const firstChild = childrenResponse.children[0];
+        setChildId(firstChild.id);
+
+        // Get latest vitals for the first child
+        try {
+          const vitalsResponse = await vitalsAPI.getLatestVitals(firstChild.id);
+          if (vitalsResponse.success && vitalsResponse.vitals) {
+            const vitals = vitalsResponse.vitals;
+            setHeartRate(vitals.heart_rate || 0);
+            setTemperature(vitals.temperature || 0);
+            setOxygenSaturation(vitals.oxygen_saturation || 0);
+            setMovement(vitals.movement_status || 'normal');
+            setBatteryLevel(vitals.battery_level || 0);
+            setDeviceConnected(vitals.device_connected || false);
+          }
+        } catch (error) {
+          console.log('No vitals data yet');
+        }
+
+        // Check for unread alerts
+        try {
+          const alertsResponse = await alertsAPI.getAlerts(true, 1);
+          setHasAlerts(alertsResponse.count > 0);
+        } catch (error) {
+          console.log('No alerts');
+        }
+      }
+    } catch (error) {
+      console.error('Error loading data:', error);
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  };
+
+  const onRefresh = () => {
+    setIsRefreshing(true);
+    loadData();
+  };
 
   const getVitalStatus = (type, value) => {
     switch (type) {
@@ -51,6 +110,17 @@ export default function HomeScreen({ navigation }) {
     );
   };
 
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#0091EA" />
+          <Text style={styles.loadingText}>Loading vitals...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       {/* Header */}
@@ -69,10 +139,13 @@ export default function HomeScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      <ScrollView 
-        style={styles.content} 
+      <ScrollView
+        style={styles.content}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
+        }
       >
         {/* Device Status Card */}
         <View style={styles.deviceCard}>
@@ -327,4 +400,14 @@ const styles = StyleSheet.create({
   navItem: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   navText: { fontSize: 11, color: '#999', marginTop: 4 },
   navTextActive: { color: '#0091EA', fontWeight: '600' },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#666',
+  },
 });
