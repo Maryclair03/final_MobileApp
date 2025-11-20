@@ -1,0 +1,20 @@
+{
+  "expo": {
+    "name": "",
+    "slug": "littlewatch",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "platforms": ["ios", "android"],
+    "splash": {
+      "image": "./assets/Splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#86d7fc"  
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/Splash.png",
+        "backgroundColor": "#86d7fc"
+      }
+    }
+  }
+}
